@@ -28,3 +28,10 @@ Linear B-Cell IgE Predictor
 	 -t : threshold for predcition of IgE; integer ranging between 0.0 and 1.0 (default 0.5).
    -BT : threshold for predcition of B-cell epitope (firt layer prediction); integer ranging between 0.0 and 1.0 (default 0.5).
    -o : output file (if not mentioned output will be stored in LBEEP_out file).
+
+4. Output Interpretation          
+   =====================
+   
+   (a) A CSV (comma seperated values) file will be generated as output for both peptide and protein mode, which contans peptideheader|input peptide|, and probability score for the peptide mode and Position of peptide in protein, |peptide|, and probability score for protein mode.
+   (b) The peptides having score greater than threshold mentioned in -t is considered IgE epitopes.
+   (c) Two output files will be generated, the one with the suffix "_out_Bcell" (contains results produced by LBEEP, Linear B cell epitope prediction first layer)  and the one with the suffix "_out_IgE" (contains results produced by IgEPred, Linear IgE epitope prediction second layer).
