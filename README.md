@@ -1,4 +1,4 @@
-# BCIgePred
+# BCIgEPred
 Linear B-Cell IgE Predictor
 
 1. Introduction
