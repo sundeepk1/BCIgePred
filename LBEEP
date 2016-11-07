@@ -1,0 +1,132 @@
+#!/usr/bin/perl
+###################################################################################
+# Author: Saravanan Vijayakumar (brsaran@gmail.com)                               #
+# Affiliation: CAS in Crystallography and Biophysics, University of Madras, India #
+# Date:	18-05-2016								  #
+###################################################################################
+use strict;
+use Cwd qw(abs_path);
+use lib abs_path().'/dependency/module/'; #setting module dependnecy path ! Do not change unless you are sure !
+use brsaran::DDE; #requires DDE module developed in this study
+
+##########################
+
+my $path2WEKA = abs_path().'/dependency/'; #change only if weka.jar is in some other location;
+
+#########################
+
+#######   DO not change anyhting beyond this line, unless if you are sure ###############
+
+
+############################# Protein Mode Begins ##########################
+my $j=0; 
+my ($PFhead, $protein,@Position,$FinalOutPep,@PRO,$Pep_DDE,$temp,$i,$Arff_header,$MODEL,@Result,$Pro_Out); #Variable Decclaration for protein mode
+my $Window = $ARGV[0];
+my $mode = $ARGV[2];
+my $protein = $ARGV[1];
+my $PFhead = '';
+my $MODEL = 'B';
+
+if($mode eq "pro"){# If protein mode is opted
+#	$FinalOutPep = 'Position,|Peptide|,Score'."\n"; #Header for CSV
+#	print "\nEnter the Window size to be scanned (6-15):";
+#	my $Window = <STDIN>;
+	$PFhead =~ s/\s//g; #Store Header
+	$protein=~s/\s//g; #Store Protein
+				
+	if(($Window < 6) && ($Window >15)){
+#		print "\nWindow size not between 6 and 15 ! May obtain undesired result !\n"; 
+	}
+	close (INFILE);
+	######## Split the protein into mentioned window size and generating inputs #################
+
+	my $Length_Protein = length($protein);
+	for($j=0;$j<($Length_Protein - ($Window-1));$j++){
+		$PRO[$j] = substr($protein,$j,$Window);
+		$Pep_DDE.= DDE($PRO[$j]).",P\n"; #Compute DDE
+		$Position[$j]= ($j+1)."-".($j+$Window);
+	}
+	$temp = './temp/'.generate_random_string(6).'.arff';
+	for($i=1;$i<=400;$i++){
+		$Arff_header .= "\@attribute $i numeric\n";
+	}
+	$Arff_header = "\@relation Epitope\n".$Arff_header.'@attribute LABEL {P,N}'."\n"."\@data\n";
+	open(TEMP,">$temp");
+	print TEMP $Arff_header.$Pep_DDE;
+	close(TEMP);
+	$Pep_DDE = "";
+	$Pro_Out = Epi_Predict_pep($temp,$path2WEKA,$MODEL);#Make prediction	
+	$Pro_Out=~s/^(?:.*\n){1,5}//; #Remove line 1-5
+	$Pro_Out=~s/(?:.*\n){1,1}\z//; #Remove last line
+
+	`rm $temp`; #remove ARFF file
+	@Result = split("\n",$Pro_Out);
+	for($j=0;$j<@Result;$j++){
+		if($Result[$j]=~m/\+/g){
+			$Result[$j]=substr($Result[$j],-6);
+			$Result[$j]=~s/\s//g;
+			$Result[$j]= 1-$Result[$j];
+		}else{
+			$Result[$j]=substr($Result[$j],-6);
+		}
+		$Result[$j]=~s/\s//g;
+		$FinalOutPep.= $Position[$j].",".'|'.$PRO[$j].'|,'. $Result[$j]."\n";
+	}
+	print $FinalOutPep;
+	############# Splitting & Prediction Ends #####################
+	
+	############## HTML Output ENDS #################################
+}
+################## Protein Mode Ends ########################
+##################### PEPTIDE MODE BEGINS #####################################
+
+my (@FHead,@PEP,@PRO,@Result,$Pep_DDE,$j,$line1,$line2,$temp,$Arff_header,$Pro_Out,$Pep_Out,$FinalOutPep); #Variable decclaration
+#$FinalOutPep = 'Sno,ID|Peptide|,Score'."\n"; #Header for CSV
+$j=0; #Variable for counting the peptides
+
+if($mode eq "pep"){ #If peptide mode is opted
+	#$FinalOutPep = 'Sno,ID|Peptide|,Score'."\n";
+	open(INFILE,"$protein");
+	while(($line1 = <INFILE>) && ($line2 = <INFILE>)){
+		$line1=~s/\s//g;		
+		$FHead[$j] = $line1; #Store Header
+		$line2=~s/\s//g;		
+		$PEP[$j]=$line2; #Store Peptide
+		if((length($PEP[$j]))>15){print "\nInput peptide $FHead[$j] has length greater than 15. May obtain undesired result ! ";}
+		if((length($PEP[$j]))<6){print "\nInput peptide $FHead[$j] has length less than 6 ! May obtain undesired result !";}
+		$Pep_DDE.= DDE($line2).",P\n"; #Compute DDE
+		$j++;
+	}
+	close (INFILE);
+	$temp = './temp/'.generate_random_string(6).'.arff';
+	for($i=1;$i<=400;$i++){
+		$Arff_header .= "\@attribute $i numeric\n";
+	}
+	$Arff_header = "\@relation Epitope\n".$Arff_header.'@attribute LABEL {P,N}'."\n"."\@data\n";
+	open(TEMP,">$temp");
+	print TEMP $Arff_header.$Pep_DDE;
+	close(TEMP);
+
+	$Pep_DDE=""; #Release memory	
+
+	$Pep_Out = Epi_Predict_pep($temp,$path2WEKA,$MODEL);	#Make prediction
+	$Pep_Out=~s/^(?:.*\n){1,5}//; #Remove line 1-5 of weka out
+	$Pep_Out=~s/(?:.*\n){1,1}\z//; #Remove last line of weka out
+#	`rm $temp`; #remove ARFF file
+
+	
+	##########Result Organization################
+	@Result = split("\n",$Pep_Out);
+	for($j=0;$j<@Result;$j++){
+		if($Result[$j]=~m/\+/g){
+			$Result[$j]=substr($Result[$j],-6);
+			$Result[$j]= 1-$Result[$j];
+		}else{
+			$Result[$j]=substr($Result[$j],-6);
+		}
+		$Result[$j]=~s/\s//g;
+		$FinalOutPep.= $FHead[$j].',|'.$PEP[$j].'|,'. $Result[$j]."\n";
+	}
+	print $FinalOutPep;
+}
+######		PEPTIDE MODE ENDS ###########################

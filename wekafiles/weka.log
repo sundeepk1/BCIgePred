@@ -1,0 +1,20 @@
+2016-06-16 14:02:02 weka.gui.GUIChooser main
+INFO: Logging started
+2016-06-16 14:02:05 weka.gui.GenericObjectEditor registerEditors
+INFO: ---Registering Weka Editors---
+2016-06-16 14:02:05 weka.experiment.DatabaseUtils initialize
+WARNING: Trying to add database driver (JDBC): jdbc.idbDriver - Warning, not in CLASSPATH?
+2016-06-16 14:02:05 weka.gui.beans.BeansProperties loadProperties
+INFO: [KnowledgeFlow] Loading properties and plugins...
+2016-06-16 14:02:05 weka.gui.beans.KnowledgeFlowApp init
+INFO: [KnowledgeFlow] Initializing KF...
+2016-06-16 14:02:09 weka.gui.explorer.Explorer <init>
+INFO: Weka Explorer
+2016-06-16 14:02:09 weka.gui.explorer.Explorer <init>
+INFO: (c) 1999-2014 The University of Waikato, Hamilton, New Zealand
+2016-06-16 14:02:09 weka.gui.explorer.Explorer <init>
+INFO: web: http://www.cs.waikato.ac.nz/~ml/weka/
+2016-06-16 14:02:09 weka.gui.explorer.Explorer <init>
+INFO: Started on Thursday, 16 June 2016
+2016-06-16 14:02:23 weka.gui.explorer.PreprocessPanel$14 run
+INFO: Base relation is now Rag (60 instances)

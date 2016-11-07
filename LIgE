@@ -1,0 +1,265 @@
+#!/usr/bin/perl
+###################################################################################
+# Author: Saravanan Vijayakumar (brsaran@gmail.com)                               #
+# Affiliation: CAS in Crystallography and Biophysics, University of Madras, India #
+# Date:	18-05-2015								  #
+###################################################################################
+use strict;
+use Cwd qw(abs_path);
+use lib abs_path().'/dependency/module/'; #setting module dependnecy path ! Do not change unless you are sure !
+use brsaran::DDE; #requires DDE module developed in this study
+
+##########################
+
+my $path2WEKA = abs_path().'/dependency/'; #change only if weka.jar is in some other location;
+
+#########################
+
+#######   DO not change anyhting beyond this line, unless if you are sure ###############
+
+my ($i, $mode, $inFile, $outFile,$Thresh,$BThresh,$outB,$outE,$BLenSplit,$MODEL);
+for($i=0;$i<@ARGV;$i++){
+	if($ARGV[0] eq "-h"){
+		print "\n\nUsage:\n";
+		print "./LIgE -i <input file name> -m <mode> -o <output file name>\n";
+		print "Options:\n";
+		print "\t-i:\tValid input file name with extension, if any\n";
+		print "\t-m:\t'pep' for single or multiple peptides; 'pro' for single FASTA formatted protein sequence\n";
+		print "\t-BT:\tB-cell predictor threshold, a value between 0 and 1; Default 0.5\n";
+		print "\t-t:\tIgE predictor threshold, a value between 0 and 1; Default 0.5\n";
+   		print "\t-L:\tLength of the peptides to be scanned when -m is opted as 'pro'; Default 10\n";
+		print "\t-M:\tModel selction either 'SVM' or 'RF'; Default RF\n";
+		print "\t-h:\tHelp\n";
+		print 'For furthr queries and bugs (if any), contact brsaran@gmail.com'."\n\n";
+		exit;
+	}
+	if($ARGV[$i] eq "-i"){
+		$inFile = $ARGV[$i+1];
+		$inFile=~s/\s//g;
+		unless(open(INFILE,"$inFile")){die "Invalid Input file or file doesn't Exist ! Exiting";}
+	}
+	if($ARGV[$i] eq "-o"){
+		$outFile = $ARGV[$i+1];
+		$outFile=~s/\s//g;
+		$outB = $outFile."_Bcell";
+		$outE = $outFile."_IgE";
+		unless(open(OUTFILE,">$outB")){die "Invalid Output file name or No permission to write the file ! Exiting";}
+		unless(open(OUTFILE1,">$outE")){die "Invalid Output file name or No permission to write the file ! Exiting";}
+		#close(OUTFILE);
+	}
+	if($ARGV[$i] eq "-BT"){
+		$BThresh = $ARGV[$i+1];
+		$BThresh =~s/\s//g;
+		if(($BThresh!~m/\d\.\d+/g)){ print "-BT:($BThresh) should be greater than 0 and less than 1! Exiting !\n"; exit;}
+	}
+	if($ARGV[$i] eq "-L"){
+		$BLenSplit = $ARGV[$i+1];
+		$BLenSplit =~s/\s//g;
+		if(($BLenSplit > 15)){ print "-L:($BLenSplit) should be between 7 and 15 (inclusive)! Exiting !\n"; exit;}
+		if(($BLenSplit < 7)){ print "-L:($BLenSplit) should be between 7 and 15 (inclusive)! Exiting !\n"; exit;}
+	}
+	if($ARGV[$i] eq "-m"){
+		$mode = $ARGV[$i+1];
+		$mode =~s/\s//g;
+		if(($mode ne 'pep')&&($mode ne 'pro')){ print "-m:($mode) should be 'pep' or 'pro'! Exiting !\n"; exit;}
+
+	}
+	if($ARGV[$i] eq "-t"){
+		$Thresh = $ARGV[$i+1];
+		$Thresh=~s/\s//g;
+		if(($Thresh!~m/\d\.\d+/g)){ print "-t:($Thresh) should be greater than 0 and less than 1! Exiting !\n"; exit;}
+	}
+	if($ARGV[$i] eq "-M"){
+		$MODEL = $ARGV[$i+1];
+		$MODEL=~s/\s//g;
+		if(($MODEL ne 'RF') && ($MODEL ne 'SVM')){ print "-M $MODEL invalid option! use 'RF' or 'SVM'  Exiting !#\n"; exit;}
+	}
+}
+if($inFile eq ''){print "-i: cannot be null; Input file missing ! Exiting !\n"; `rm $outB`;`rm $outE`; exit;}
+if($outFile eq ''){print "\n-o: empty ! saving Bcell results to file LIGE_out_Bcell\n"; $outB = "LIGE_out_Bcell";unless(open(OUTFILE,">$outB")){die "Invalid Output file name or No permission to write the file ! Exiting";}print "\n-o: empty ! saving IgE results to file LIGE_out_IgE\n"; $outE = "LIGE_out_IgE";unless(open(OUTFILE1,">$outE")){die "Invalid Output file name or No permission to write the file ! Exiting";}}
+if($mode eq ''){print "-m: Should not be empty! Unknown mode ! Exiting\n"; exit;}
+if($MODEL eq ''){print "-M: Set to RF\n"; $MODEL = 'RF'}
+
+####Mode Protein Begin
+if($mode eq 'pro'){
+if($Thresh eq ''){print "-t: Threshold set to 0.5\n"; $Thresh = 0.5;}
+if($BThresh eq ''){print "-BT: Threshold set to 0.5\n"; $BThresh = 0.5;}
+if($BLenSplit eq ''){print "-L: Length set to 10\n"; $BLenSplit = 10;}
+
+	##Variable Dec
+	my($line1,$head,$MProtein);
+	#Read FASTA
+	while($line1=<INFILE>){
+		if($line1=~m/^\>/g){
+			$head = $line1;
+		}else{
+			$MProtein.=$line1;
+		}
+	}
+	$MProtein =~s/\s//g;
+	$MProtein = uc($MProtein);
+	###################################
+
+	##### B-cell prediction using LBEEP
+	my @Bcell_out;
+	my $Eimmu;
+	@Bcell_out = &Window_Splitter($MProtein, $BThresh,$BLenSplit);
+
+	foreach $_(@Bcell_out){
+		print OUTFILE $_."\n";
+		$_ =~ m/^(.*)\,\|(.*)\|\,.*/g;
+		$Eimmu.=">".$1."\n".$2."\n";
+	}
+	my $tempF = './temp/'.generate_random_string(6);
+	open(EGG,">$tempF");
+	print EGG $Eimmu;
+	close(EGG);
+	close(OUTFILE);
+	#################### B-cell prediction Ends
+
+	########IgE prediction using IgEPred
+	`dependency/IgEPred -i $tempF -o $outE -t $Thresh -m 'pep' -M $MODEL`;
+	`rm $tempF`; #remove temp file
+	#### IgE prediction ends
+
+	####### Remove Sno header from the IgE pred out
+	my $lineX;
+	my $Line_st;
+
+	open(EGG,"$outE");
+	while($lineX = <EGG>){
+		$lineX=~s/^.*\,\>//g;
+		$lineX=~s/^Sno,//g;
+		$Line_st.= $lineX;	
+	}
+	close(EGG);
+	open(EGG,">$outE");
+	print EGG $Line_st;
+	close(EGG);
+}#Protein Mode Ends
+
+#Peptide mode begins
+if($mode eq 'pep'){
+
+if($Thresh eq ''){print "-t: Threshold set to 0.5\n"; $Thresh = 0.5;}
+if($BThresh eq ''){print "-BT: Threshold set to 0.5\n"; $BThresh = 0.5;}
+
+	
+	my @Bcell_out;
+	my $Eimmu;
+	@Bcell_out = &Window_Splitter($inFile, $BThresh,'pep');
+	foreach $_(@Bcell_out){
+		print OUTFILE $_."\n";
+		$_ =~ m/^(.*)\,\|(.*)\|\,.*/g;
+		$Eimmu.=">".$1."\n".$2."\n";
+	}
+	my $tempF = './temp/'.generate_random_string(6);
+	open(EGG,">$tempF");
+	print EGG $Eimmu;
+	close(EGG);
+	close(OUTFILE);
+	#################### B-cell prediction Ends
+
+	########IgE prediction using IgEPred
+	`./IgEPred -i $tempF -o $outE -t $Thresh -m 'pep' -M $MODEL`;
+	`rm $tempF`; #remove temp file
+	#### IgE prediction ends
+
+	####### Remove Sno header from the IgE pred out
+	my $lineX;
+	my $Line_st;
+
+	open(EGG,"$outE");
+	while($lineX = <EGG>){
+		$lineX=~s/^.*\,\>//g;
+		$lineX=~s/^Sno,//g;
+		$Line_st.= $lineX;	
+	}
+	close(EGG);
+	open(EGG,">$outE");
+	print EGG $Line_st;
+	close(EGG);
+#pep Mode Ends
+
+}
+
+
+###############Everything ends
+
+
+##########  Subroutine Begins
+
+sub Window_Splitter{
+	my $pro_in = $_[0];
+	my $bcell_T = $_[1];
+	my $Len_Bcell = $_[2];
+	my (@win7,@win8,@win9,@win10,@win11,@win12,@win13,@win14,@win15,$x,@win16);
+
+	if($Len_Bcell == 7){
+		$x = `dependency/LBEEP 7 $pro_in 'pro'`;
+		@win7 = &Res_Parser($x,$bcell_T);
+		return @win7;
+	}elsif($Len_Bcell == 8){
+		$x = `dependency/LBEEP 8 $pro_in 'pro'`;
+		@win8 = &Res_Parser($x,$bcell_T);
+		return @win8;
+	}elsif($Len_Bcell == 9){
+		$x = `dependency/LBEEP 9 $pro_in 'pro'`;
+		@win9 = &Res_Parser($x,$bcell_T);
+		return @win9;
+	}elsif($Len_Bcell == 10){
+		$x = `dependency/LBEEP 10 $pro_in 'pro'`;
+		@win10 = &Res_Parser($x,$bcell_T);
+		return @win10;
+	}elsif($Len_Bcell == 11){
+		$x = `dependency/LBEEP 11 $pro_in 'pro'`;
+		@win11 = &Res_Parser($x,$bcell_T);
+		return @win11;
+	}elsif($Len_Bcell == 12){
+		$x = `dependency/LBEEP 12 $pro_in 'pro'`;
+		@win12 = &Res_Parser($x,$bcell_T);
+		return @win12;
+	}elsif($Len_Bcell == 13){
+		$x = `dependency/LBEEP 13 $pro_in 'pro'`;
+		@win13 = &Res_Parser($x,$bcell_T);
+		return @win13;
+	}elsif($Len_Bcell == 14){
+		$x = `dependency/LBEEP 14 $pro_in 'pro'`;
+		@win14 = &Res_Parser($x,$bcell_T);
+		return @win14;
+	}elsif($Len_Bcell == 15){
+		$x = `dependency/LBEEP 15 $pro_in 'pro'`;
+		@win15 = &Res_Parser($x,$bcell_T);
+		return @win15;
+	}elsif($Len_Bcell eq 'pep'){
+		$x = `dependency/LBEEP 0 $pro_in 'pep'`;
+		@win16 = &Res_Parser($x,$bcell_T);
+		return @win16;
+	}
+
+}
+
+sub Res_Parser{
+	my $in = $_[0];
+	my $bcell_TT = $_[1];
+	my @hold;
+	my @hold_ret;
+	my $i;
+	my $x;
+
+	@hold = split('\n',$in);
+
+	foreach $x( @hold){
+		my $subx ;
+		$x =~ m/.*\,.*\,(.*)/g;
+		$subx=$1;
+		$subx=~s/\s//g;
+		if ($subx >= $bcell_TT){
+			@hold_ret[$i] = $x;		
+			$i++;
+		}
+	}
+return @hold_ret;
+}
+
+############ Subroutine ends
