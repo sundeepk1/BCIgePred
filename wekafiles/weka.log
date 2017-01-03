@@ -18,3 +18,7 @@ INFO: web: http://www.cs.waikato.ac.nz/~ml/weka/
 INFO: Started on Thursday, 16 June 2016
 2016-06-16 14:02:23 weka.gui.explorer.PreprocessPanel$14 run
 INFO: Base relation is now Rag (60 instances)
+2016-12-30 15:47:29 WARNING: [WekaPackageManager] The repository meta data mirror file seems to be unavailable (www.cs.waikato.ac.nz)
+2016-12-30 15:47:29 WARNING: [WekaPackageManager] The repository meta data mirror file seems to be unavailable (www.cs.waikato.ac.nz)
+2016-12-30 15:47:29 WARNING: [WekaPackageManager] The repository meta data mirror file seems to be unavailable (www.cs.waikato.ac.nz)
+2016-12-30 15:47:29 WARNING: [WekaPackageManager] The repository meta data mirror file seems to be unavailable (www.cs.waikato.ac.nz)

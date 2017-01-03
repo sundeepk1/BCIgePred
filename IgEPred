@@ -181,7 +181,8 @@ my $j;
 my @Sum_AV;
 
 	for($j=0;$j<@aref_1;$j++){
-		$Sum_AV[$j] = ($aref_1[$j]+$aref_2[$j]+$aref_3[$j])/3;						
+		$Sum_AV[$j] = ($aref_1[$j]+$aref_2[$j]+$aref_3[$j])/3;							
+		
 	}
 
 return @Sum_AV;
